@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supervisório Web - PLC</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; background-color: #f4f4f9;}
+        .card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0px 4px 6px rgba(0,0,0,0.1); display: inline-block; }
+        h1 { color: #333; }
+        .valor { font-size: 2.5em; font-weight: bold; color: #0056b3; margin: 10px 0;}
+        button { padding: 15px 30px; font-size: 1.2em; cursor: pointer; border: none; border-radius: 5px; margin-top: 20px; font-weight: bold;}
+        .btn-ligar { background-color: #28a745; color: white; }
+        .btn-desligar { background-color: #dc3545; color: white; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Painel do PLC</h1>
+        
+        <p>Nível do Tanque:</p>
+        <div class="valor"><span id="nivel">--</span> L</div>
+        
+        <p>Status da Bomba: <strong id="status-bomba">A verificar...</strong></p>
+        
+        <button id="btn-bomba" class="btn-ligar" onclick="alternarBomba()">Aguarde...</button>
+    </div>
+
+    <script>
+        let bombaLigada = false;
+
+        // Função que vai ao servidor Python ler os dados a cada 1 segundo
+        async function atualizarDados() {
+            try {
+                const resposta = await fetch("http://localhost:8000/api/dados");
+                const dados = await resposta.json();
+
+                if (dados.sucesso) {
+                    document.getElementById("nivel").innerText = dados.nivel_tanque;
+                    
+                    bombaLigada = dados.bomba_ligada;
+                    const btn = document.getElementById("btn-bomba");
+                    const status = document.getElementById("status-bomba");
+
+                    if (bombaLigada) {
+                        status.innerText = "LIGADA";
+                        status.style.color = "green";
+                        btn.innerText = "Desligar Bomba";
+                        btn.className = "btn-desligar";
+                    } else {
+                        status.innerText = "DESLIGADA";
+                        status.style.color = "red";
+                        btn.innerText = "Ligar Bomba";
+                        btn.className = "btn-ligar";
+                    }
+                }
+            } catch (erro) {
+                console.error("Erro ao comunicar com a API:", erro);
+            }
+        }
+
+        // Função executada quando clica no botão para enviar comando ao Python
+        async function alternarBomba() {
+            try {
+                await fetch("http://localhost:8000/api/bomba", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ ligar: !bombaLigada })
+                });
+                atualizarDados(); // Atualiza o ecrã imediatamente após o clique
+            } catch (erro) {
+                console.error("Erro ao enviar comando:", erro);
+            }
+        }
+
+        // Configura o JavaScript para ler os dados do PLC a cada 1000ms (1 segundo)
+        setInterval(atualizarDados, 1000);
+        atualizarDados(); // Executa a primeira leitura imediatamente
+    </script>
+</body>
+</html>
